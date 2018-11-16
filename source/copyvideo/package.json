@@ -1,0 +1,11 @@
+{
+  "name": "videocopy",
+  "version": "1.0.0",
+  "description": "Copy video from Upload Bucket to Source Bucket",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "sushil@clearstack.io",
+  "license": "ISC"
+}

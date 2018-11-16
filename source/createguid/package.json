@@ -1,0 +1,18 @@
+{
+  "name": "createguid",
+  "version": "1.0.0",
+  "description": "create unique id for each video file",
+  "main": "na",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "moment": "^2.18.1",
+    "uuid": "*"
+  },
+  "devDependencies": {
+    "aws-sdk": "*"
+  },
+  "author": "sushil@clearstack.io",
+  "license": "Clearstack Inc"
+}
