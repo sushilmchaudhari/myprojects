@@ -1,0 +1,134 @@
+# Class: ebasetup
+# ===========================
+#
+# Full description of class ebasetup here.
+# This class installs Ruby Version Manager. Once RVM is installed it installs Ruby 2.1.9 and Bundler for Eba setup.
+#
+# Authors
+# -------
+#
+# Sushil Chaudhari  <sushil@codetheory.io>
+#
+# Copyright
+# ---------
+#
+# Copyright 2016 Your name here, unless otherwise noted.
+#
+
+class ebasetup {
+
+	$uname = "${::cur_user}"
+	$home = "/home/${uname}"
+	$as_root = "/usr/bin/sudo -u ${uname} -H bash -l -c"
+
+# Creating some yml files to eba tmp folder.
+	
+	class { ebasetup::ymlfile: }
+
+# Now we can install RVM (note the dependency on the curl package):
+
+	class { '::rvm': 
+#		notify => Rvm_system_ruby['ruby-2.1.9'],
+	}
+
+	file { "/home/${cur_user}/.rvmrc":
+	   content => 'umask u=rwx,g=rwx,o=rx
+export rvm_max_time_flag=20',
+  	   mode    => '0664',
+ 	   before  => Class['rvm'],
+	}	
+
+#	rvm::system_user { "${cur_user}": }	
+
+# Next up, install Ruby 2.1.9 (note the dependency on our previous install_rvm command):
+
+	rvm_system_ruby { 'ruby-2.1.9':
+    	   ensure      => 'present',
+    	   default_use => true,
+	   notify => Rvm_gemset['ruby-2.1.9@eba'],
+#    	   build_opts  => ['--binary'];
+	}
+
+# Create a Gem Set for eba project.
+
+	rvm_gemset {'ruby-2.1.9@eba':
+    	   ensure  => present,
+    	   require => Rvm_system_ruby['ruby-2.1.9'];
+	}
+
+# Finally, install Bundler:
+
+	rvm_gem { 'ruby-2.1.9@eba/bundler':
+    	   ensure  => latest,
+    	   require => Rvm_gemset['ruby-2.1.9@eba'];
+	}
+
+
+# Install QT55
+
+	package { 'qt5-qtwebkit-devel':
+	   ensure => present,
+	}
+
+
+        file_line { 'add_path':
+           path => "/home/$uname/.bash_profile",
+           line => 'PATH=$PATH:/usr/lib64/qt5/bin/
+export PATH',
+           require => Package['qt5-qtwebkit-devel'],
+	}
+
+
+# Installing MQ client for Centos 7.
+
+	class { ebasetup::wmq: }
+
+
+# Installing all the Gems required for EBA project.
+
+
+        exec { 'bundle_install':
+#          user => "${uname}",
+          cwd => "${home}/eba/",
+#          command => "${as_root} 'source ${home}/.bash_profile ; source /usr/local/rvm/scripts/rvm ; /usr/local/rvm/gems/ruby-2.1.9@eba/bin/bundle install'",
+	  command => "/bin/bash -l -c 'source ${home}/.bash_profile ; source /usr/local/rvm/scripts/rvm ; /usr/local/rvm/gems/ruby-2.1.9@eba/bin/bundle install'",
+	  logoutput => true,
+	  timeout => 1800,
+	  require => [ Rvm_gem['ruby-2.1.9@eba/bundler'],Class['ebasetup::wmq', 'ebasetup::ymlfile'] ],
+        }
+	  
+
+# Migrate rails active records and Populate the database with seed
+
+        exec { 'create_db':
+#           user => "${uname}",
+           cwd => "${home}/eba/",
+           command => "/bin/bash -l -c 'source ${home}/.bash_profile ; source /usr/local/rvm/scripts/rvm ; /usr/local/rvm/rubies/ruby-2.1.9/bin/rake db:drop db:create'",
+           logoutput => true,
+           timeout => 1800,
+	   require => Exec['bundle_install'],
+        }
+
+        exec { 'migrate_db':
+#           user => "${uname}",
+           cwd => "${home}/eba/",
+           command => "/bin/bash -l -c 'source ${home}/.bash_profile ; source /usr/local/rvm/scripts/rvm ; /usr/local/rvm/rubies/ruby-2.1.9/bin/rake db:migrate db:seed'",
+           logoutput => true,
+	   timeout => 1800,
+	   require => Exec['bundle_install'],
+	}
+
+
+# Start Solr.
+
+
+       exec { 'start_solr':
+           cwd => "${home}/eba/",
+#	   user => "${uname}",
+           command => "/bin/bash -l -c 'source ${home}/.bash_profile ; source /usr/local/rvm/scripts/rvm ; /usr/local/rvm/rubies/ruby-2.1.9/bin/rake sunspot:solr:start'",
+	   logoutput => true,
+	   require => Exec['bundle_install'],
+        }
+
+
+}

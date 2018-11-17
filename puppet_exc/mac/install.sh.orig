@@ -1,0 +1,150 @@
+#!/bin/sh
+
+# Install Puppet agent on Mac to have masterless puppet setup.
+
+OSX_VERS=$(sw_vers -productVersion | awk -F "." '{print $2}')
+AS_ROOT="/usr/bin/sudo -u $(uname) -H bash -l -c"
+UNAME=$(users)
+XCODE_VERS=$(xcodebuild -version | grep Xcode | awk '{print $2}' | cut -d. -f1)
+
+echo "====================================================================================================================="
+
+if [[ ! `/opt/puppetlabs/bin/puppet --version` ]] ;
+then
+    echo "Installing Puppet agent..."
+	
+    #  We will download Puppet agent for ver 10.11 
+
+    DMGURL="https://downloads.puppetlabs.com/mac/10.11/PC1/x86_64/puppet-agent-1.6.1-1.osx10.11.dmg"
+
+    TOOLS="puppetagent.dmg"
+    `curl "$DMGURL" -o "$TOOLS"`
+    TMPMOUNT=`/usr/bin/mktemp -d /tmp/puppetagent.XXXX`
+    hdiutil attach "$TOOLS" -mountpoint "$TMPMOUNT"
+    PKGNAME=`find "$TMPMOUNT" -name '*.pkg'`
+    sudo installer -pkg "$PKGNAME" -target /
+    hdiutil detach "$TMPMOUNT"
+    rm -rf "$TMPMOUNT"
+    rm -f "$TOOLS"
+    echo "Puupet installation is successful."
+else
+    echo "Puppet agent already installed...No Need to install again."
+fi
+
+PATH=/opt/puppetlabs/bin:$PATH; export PATH
+
+echo "====================================================================================================================="
+
+## Installing Brew.
+
+if [[ -f /usr/local/bin/brew ]]
+then
+        echo "Brew is already installed. "
+else
+        echo "Installing brew..."
+
+        yes "" | /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
+        if [[ "$?" != 0 ]]
+        then
+                echo "Not installed properly. Please check. Exiting".
+        else
+                echo "Installed successfully."
+        fi
+
+	/usr/local/bin/brew cask
+	/usr/local/bin/brew tap
+	/usr/local/bin/brew tap homebrew/versions
+
+	echo "Adding write permission to /usr/local/share/doc"
+	sudo chown -R "$UNAME":admin /usr/local/
+	sudo chmod a+w /usr/local/share/doc	
+
+fi
+
+echo "====================================================================================================================="
+
+# Installing necessary puppet modules required.
+
+if [[ ! `puppet module list --modulepath ~/eba-mac-setup/modules | grep stdlib` ]]
+then
+	puppet module install --modulepath ~/eba-mac-setup/modules puppetlabs/stdlib
+fi
+
+if [[ ! `puppet module list --modulepath ~/eba-mac-setup/modules | grep staging` ]]
+then
+        puppet module install --modulepath ~/eba-mac-setup/modules nanliu/staging
+fi
+
+if [[ ! `puppet module list --modulepath ~/eba-mac-setup/modules | grep homebrew` ]]
+then
+        puppet module install --modulepath ~/eba-mac-setup/modules gildas/homebrew
+fi
+
+#if [[ ! `puppet module list --modulepath ~/eba-mac-setup/modules | grep rvm` ]]
+#then
+#        puppet module install --modulepath ~/eba-mac-setup/modules maestrodev/rvm
+#fi
+
+echo "====================================================================================================================="
+
+echo "Running Puppet manifest to add Codetheory Account."
+
+#sudo /opt/puppetlabs/bin/puppet apply --modulepath ~/eba-mac-setup/modules ~/eba-mac-setup/manifests/site1.pp
+
+echo "====================================================================================================================="
+
+printf "Before configuring EBA on MAC , want to make sure everything is OK...\n\n"
+
+
+if [[ ( "$XCODE_VERS" -ge 7 ) && ( `git --version` ) && ( -d ~/eba ) ]]
+then
+        echo "Necessary softwares are installed and Eba directory is cloned."
+else
+        echo "Please install Xcode if not."
+        echo "Please install and configure Git if not follow: https://start.sic-eba.com/wiki/display/EBA/Development+Environment+Setup#DevelopmentEnvironmentSetup-Gitlab"
+        echo "Clone EBA project from Gitlab use command:=> git clone git@git.sic-eba.com:s000176/eba.git"
+        exit
+fi
+
+echo "====================================================================================================================="
+
+#VMware Fusion
+if [[ -d "/Applications/Vmware Fusion.app/Contents/Library" ]]
+then
+        echo "VMWare Fusion is Installed."
+        echo "Please configure vmware as given in link https://start.sic-eba.com/wiki/display/EBA/Development+Environment+Setup#DevelopmentEnvironmentSetup-VMWareFusion"
+
+else
+        echo "Please install VMware Fusion follow: https://start.sic-eba.com/wiki/display/EBA/Development+Environment+Setup#DevelopmentEnvironmentSetup-VMWareFusion"
+        exit
+fi
+
+echo "====================================================================================================================="
+
+if [[ ! `sudo cat /etc/hosts | grep -v '^#' | grep ebarubydev` ]]
+then
+        echo "Oracle DB server entry not exist on server."
+        echo "Please check https://start.sic-eba.com/wiki/display/EBA/Development+Environment+Setup#DevelopmentEnvironmentSetup-VMWareFusion"
+        echo "to add entry in hosts file."
+        echo "Now exiting."
+        exit
+else
+        ORACLE_IP=$(cat /etc/hosts | grep -v '^#' | grep ebarubydev | awk '{print $1}')
+        PING=$(ping -c 3 "$ORACLE_IP" | grep "packet loss" | awk '{print $7}' | cut -d. -f1)
+        if [[ "$PING" -ne 0 ]]
+        then
+           echo "Oracle DB Server is not reachable. Please check IP/connection.Now exiting"
+           exit
+        else
+           echo "Oracle DB server is reachable."
+        fi
+fi
+
+echo "====================================================================================================================="
+
+echo "Running Puppet manifests to setup Eba dev env and install necessary softwares."
+
+#sudo /opt/puppetlabs/bin/puppet apply --modulepath ~/eba-mac-setup/modules ~/eba-mac-setup/manifests/site.pp
+
+echo "====================================================================================================================="
