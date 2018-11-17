@@ -1,0 +1,96 @@
+---
+- hosts: all
+  become: yes
+
+  vars_files:
+    - vars.yml
+
+  vars:
+    - ruby_gemset: "{{ ruby_version }}@{{ gemset_name }}"
+
+  roles:
+    - { role: rvm_io.ruby,
+        tags: ruby,
+        become: yes,
+        rvm1_rubies: ['ruby-2.1.9'],
+        rvm1_install_flags: '--auto-dotfiles',     # Remove --user-install from defaults
+        rvm1_install_path: '{{ app_dir }}',         		  # Set to system location
+        rvm1_user: "{{ ansible_user_id }}",                        # Need root account to access system location
+        rvm1_bundler_install: false,
+        rvm1_rvm_check_for_updates: false
+      }	
+
+  tasks:
+
+    - name: check gemset exists.
+      shell: '{{ app_dir }}/bin/rvm gemset list | grep "{{ gemset_name }}"'
+      register: list_of_gemsets
+      ignore_errors: yes
+
+    - name: Create a gemset according to client.
+      shell: '{{ app_dir }}/bin/rvm gemset create "{{ gemset_name }}"'
+      args:
+        creates: "{{ app_dir }}/gems/{{ ruby_gemset }}"
+      register: gemeset_created
+      when: list_of_gemsets.rc != 0
+
+#    - name: Use created gemset.
+#      shell: '{{ app_dir }}/bin/rvm use @{{ gemset_name }}'
+#      args:
+#        executable: /bin/bash
+#      register: gemset_used
+
+    - name: Install bundler under specific gemset.
+      shell: > 
+        ls {{ app_dir }}/wrappers/{{ ruby_gemset }}
+        | if ! grep "^bundler " ; then {{ app_dir }}/wrappers/{{ ruby_gemset }}/gem install bundler ; fi 
+      args:
+        creates: "{{ app_dir }}/gems/{{ ruby_gemset }}/bin/bundler" 
+      register: bundler_install
+#      when: "rvm1_bundler_install == \"false\" or rvm1_bundler_install == \"False\"" 
+      changed_when: '"Successfully installed bundler" in bundler_install.stdout'
+     
+    - name: "Install Rack required for Passenger"
+      shell: >
+        ls {{ app_dir }}/wrappers/{{ ruby_version }}
+        | if ! grep "^rackup " ; then {{ app_dir }}/wrappers/{{ ruby_version }}/gem install rack -v=1.6.5 ; fi
+      register: rack_install
+      args:
+        creates: "{{ app_dir }}/gems/{{ ruby_version }}/bin/rackup"
+      changed_when: '"Successfully installed rack" in rack_install.stdout'
+      when: apache_install      
+
+    - name: "Install Passenger"
+      shell: >
+        ls {{ app_dir }}/wrappers/{{ ruby_version }}/
+        | if ! grep "^passenger$" ; then {{ app_dir }}/wrappers/{{ ruby_version }}/gem install passenger ; fi
+      register: pass_install
+      args:
+        creates: "{{ app_dir }}/gems/{{ ruby_version }}/bin/passenger"
+      changed_when: '"Successfully installed passenger" in pass_install.stdout'
+      when: apache_install      
+
+    - name: Check passenger version
+      shell: >
+        {{ app_dir }}/wrappers/{{ ruby_version }}/passenger -v | awk '{print $NF}'
+      register: pass_version
+      when: apache_install
+
+    - name: Check apache is alreay compile or not
+      stat: "path={{ app_dir }}/gems/{{ ruby_version }}/gems/passenger-{{ pass_version.stdout }}/buildout/apache2/mod_passenger.so"
+      register: apache_compile
+      when: apache_install
+
+    - name: Install and configure apache
+      shell: >
+        {{ app_dir }}/wrappers/{{ ruby_version }}/passenger-install-apache2-module --auto
+      register: apache_install
+      args:
+        creates: "{{ app_dir }}/gems/{{ ruby_version }}/gems/passenger-{{ pass_version.stdout }}/buildout/apache2/mod_passenger.so"
+      when: apache_compile.stat.exists != True and apache_install
+      changed_when: '"Detected 0 error" in apache_install.stdout'
+#      when: apache_install
+
+#    - name: Create Virtual host directory
+#      include: virtualhost.yml
+#      when: apache_install

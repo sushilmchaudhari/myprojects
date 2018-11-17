@@ -1,0 +1,103 @@
+---
+- hosts: all
+
+  vars_files:
+    - vars.yml
+
+#  pre_tasks:
+#    - name: Update apt cache if needed.
+#      apt: update_cache=yes cache_valid_time=3600
+
+  handlers:
+    - name: restart solr
+      service: name=solr state=restarted
+
+  tasks:
+    - name: Download Solr.
+      get_url:
+        url: "http://archive.apache.org/dist/lucene/solr/{{ solr_version }}/solr-{{ solr_version }}.tgz"
+        dest: "{{ tmp_dir }}/solr-{{ solr_version }}.tgz"
+        force: no
+      become: yes
+
+    - name: Expand Solr.
+      unarchive:
+        src: "{{ tmp_dir }}/solr-{{ solr_version }}.tgz"
+        dest: "{{ tmp_dir }}"
+        copy: no
+        creates: "{{ tmp_dir }}/solr-{{ solr_version }}/README.txt"
+      become: yes
+
+    - name: Run Solr installation script.
+      shell: >
+        {{ tmp_dir }}/solr-{{ solr_version }}/bin/install_solr_service.sh
+        {{ tmp_dir }}/solr-{{ solr_version }}.tgz
+        -i {{ solr_dir }}
+        -d {{ solr_dir }}/solr
+        -u solr
+        -s solr
+        -p 8983
+        creates={{ solr_dir }}/solr//bin/solr
+      become: yes
+
+    - name: Change mode of solr service file
+      file:
+        path: /etc/init.d/solr
+        mode: a+x
+      become: yes
+
+#    - name: Ensure solr is started and enabled on boot.
+#      service: name=solr state=started enabled=yes
+
+    - name: Check current list of Solr cores.
+      uri:
+        url: http://localhost:8983/solr/admin/cores
+        return_content: yes
+      register: solr_cores_current
+
+    - name: Ensure Solr conf directories exist.
+      file:
+        path: "{{ solr_dir }}/solr/data/{{ item }}/conf"
+        state: directory
+        owner: solr
+        group: solr
+        mode: o+w
+        recurse: yes
+      when: "item not in solr_cores_current.content"
+      with_items:
+        - "{{ app_env }}"
+        - test
+      become: yes
+
+    - name: Ensure core configuration directories exist.
+      shell: "cp -r {{ solr_dir }}/solr/example/files/conf/ {{ solr_dir }}/solr/data/{{ item }}/"
+      when: "item not in solr_cores_current.content"
+      with_items:
+        - "{{ app_env }}"
+        - test
+      become: yes
+      become_user: solr
+
+
+    - name: Create configured cores.
+      shell: "{{ solr_dir }}/solr/bin/solr create -c {{ item }}"
+      when: "item not in solr_cores_current.content"
+      with_items: 
+        - "{{ app_env }}"
+        - test
+      become: yes
+      become_user: solr
+
+    - name: Copy sunspot files to core configuration directory..
+      copy:
+        src: files/solr_conf/
+        dest: "{{ solr_dir }}/solr/data/{{ item }}/conf/"
+        owner: solr
+        group: solr
+      when: "item not in solr_cores_current.content"
+      with_items:
+        - "{{ app_env }}"
+        - test
+      become: yes
+#      become_user: solr
+   

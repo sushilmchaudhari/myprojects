@@ -1,0 +1,12 @@
+---
+# Variables for app
+ruby_version: ruby-2.1.9
+gemset_name: eba
+app_user: centos 
+app_dir: "/opt/apps/rvm"
+#solr_dir: "/opt/apps"
+app_env: "development"
+apache_install: true
+tmp_dir: "/tmp/work"
+gui_required: yes
+

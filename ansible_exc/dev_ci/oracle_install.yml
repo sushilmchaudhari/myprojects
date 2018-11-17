@@ -1,0 +1,13 @@
+---
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Create swap space if not exist.
+      
+
+
+
+
+    - name: Install oracle if needed.
+      

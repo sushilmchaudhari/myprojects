@@ -1,0 +1,52 @@
+---
+- hosts: all
+  become: yes
+
+  vars_files:
+    - vars.yml
+
+  vars:
+    - ruby_gemset: "{{ ruby_version }}@{{ gemset_name }}"
+
+  roles:
+    - { role: rvm_io.ruby,
+        tags: ruby,
+        become: yes,
+        rvm1_rubies: ['ruby-2.1.9'],
+        rvm1_install_flags: '--auto-dotfiles',     # Remove --user-install from defaults
+        rvm1_install_path: '{{ rvm_dir }}',         		  # Set to system location
+        rvm1_user: "{{ ansible_user_id }}",                        # Need root account to access system location
+        rvm1_bundler_install: false,
+        rvm1_rvm_check_for_updates: false
+      }	
+
+  tasks:
+
+    - name: check gemset exists.
+      shell: '{{ rvm_dir }}/bin/rvm gemset list | grep "{{ gemset_name }}"'
+      register: list_of_gemsets
+      ignore_errors: yes
+
+    - name: Create a gemset according to client.
+      shell: '{{ rvm_dir }}/bin/rvm gemset create "{{ gemset_name }}"'
+      args:
+        creates: "{{ rvm_dir }}/gems/{{ ruby_gemset }}"
+      register: gemeset_created
+      when: list_of_gemsets.rc != 0
+
+    - name: Install bundler under specific gemset.
+      shell: > 
+        ls {{ rvm_dir }}/wrappers/{{ ruby_gemset }}
+        | if ! grep "^bundler " ; then {{ rvm_dir }}/wrappers/{{ ruby_gemset }}/gem install bundler ; fi 
+      args:
+        creates: "{{ rvm_dir }}/gems/{{ ruby_gemset }}/bin/bundler" 
+      register: bundler_install
+      changed_when: '"Successfully installed bundler" in bundler_install.stdout'
+    
+#  Installation of Apache with Passenger
+
+    - include: tasks/apache_passenger.yml
+      when: apache_install
+    
+    - include: tasks/virtualhost.yml
+      when: apache_install

@@ -1,0 +1,20 @@
+---
+-
+  hosts: all
+  vars_files:
+    - vars.yml
+
+#- name: Install necessary softwares
+#  include: 'provision.yml'
+
+#- name: Install Ruby and Gems
+#  include: 'install_rvm.yml'
+
+- name: Install Dependencies
+  include: 'depedencies.yml'
+
+#- name: Install Solr
+#  include: 'solar.yml'
+
+#- name: Create default virtualhost
+#  include: 'virtualhost.yml'

@@ -1,0 +1,63 @@
+---
+-
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+
+  tasks:
+#    - name: "Copy MQ files"
+#      copy:
+#        src: "files/{{ item }}"
+#        dest: /tmp/
+#        owner: "{{ app_user }}"
+#        mode: 600
+#      with_items:
+#        - mqlicense.sh
+#        - MQSeriesRuntime-8.0.0-1.x86_64.rpm
+#        - MQSeriesClient-8.0.0-1.x86_64.rpm
+#        - MQSeriesJava-8.0.0-1.x86_64.rpm
+#        - MQSeriesSDK-8.0.0-1.x86_64.rpm
+
+    - name: "Install MQ License"
+      shell: '/usr/bin/yes 1 | sh /tmp/work/mqc80_8.0.0.1_linuxx86-64/mqlicense.sh'
+      args:
+        creates: "/opt/mqm/licenses/status.dat"
+      register: license_installed
+
+    - name: "Install MQ rpm packages"
+      yum:
+        name: "/tmp/work/mqc80_8.0.0.1_linuxx86-64/{{ item }}"
+        state: present
+      with_items:
+        - MQSeriesRuntime-8.0.0-1.x86_64.rpm
+        - MQSeriesClient-8.0.0-1.x86_64.rpm
+        - MQSeriesJava-8.0.0-1.x86_64.rpm
+        - MQSeriesSDK-8.0.0-1.x86_64.rpm
+
+    - name: "Install QT5"
+      yum:
+        name: qt5-qtwebkit-devel
+#        enablerepo: epel-release
+        state: present
+      
+    - name: "Export qmake path to PATH variable"
+      blockinfile: 
+        dest: "/home/{{ app_user }}/.{{ item }}"
+        block: |
+          PATH=$PATH:/usr/lib64/qt5/bin/
+          export PATH
+      with_items:
+        - bash_profile
+        - bashrc
+
+    - name: "Install Redis"
+      yum:
+        name: redis
+        state: present
+
+    - name: "Start and enable Redis service at boot"
+      service:
+        name: redis
+        state: started
+        enabled: yes

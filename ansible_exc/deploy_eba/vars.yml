@@ -1,0 +1,27 @@
+---
+# Variables for app server setup pre-deployment of eba project
+
+# RVM and Ruby variables
+ruby_version: ruby-2.1.9
+gemset_name: eba
+app_user: sushil 
+rvm_dir: "/opt/apps/rvm"	       # Rvm installatio directory	
+app_env: "development"                 
+ruby_gemset: "{{ ruby_version }}@{{ gemset_name }}"
+
+# Apache variables
+apache_install: true                   # Expected value true/false
+tmp_dir: "/tmp/work"
+
+# Installs xfvb-run utility.
+gui_required: false                    # Expected value true/false
+
+# Solr Variables
+solr_dir: "/opt/apps"                  # Solr installation directory
+solr_version: 5.3.1
+
+
+# Variables needed post deployment of eba project
+
+eba_deploy_dir: "/opt/apps/eba/dev"	# This directory is same as used while deploying by Capistrano.
+vhost_servername: test.eba.com          # Hostname or Public IP of destination server

@@ -1,0 +1,54 @@
+---
+-
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: "Download Solr"
+      get_url: 
+        url: http://archive.apache.org/dist/lucene/solr/5.3.1/solr-5.3.1.tgz
+        dest: "/tmp/work/solr-5.3.1.tgz"
+        thirsty: no
+      register: solr_dwd
+
+    - name: Extract Solr installation script
+      shell: 'tar -xzf /tmp/work/solr-5.3.1.tgz -C /tmp/work solr-5.3.1/bin/install_solr_service.sh --strip-components=2'
+      register: solr_install
+      when: '"OK" in solr_dwd.msg or "file already exists" in solr_dwd.msg'
+
+    - name: "Check solr already install"
+      stat:
+        path: /etc/init.d/solr
+      register: installed_solr
+
+    - name: "Install Solr"
+      command: "/tmp/work/install_solr_service.sh /tmp/work/solr-5.3.1.tgz -i {{ solr_dir }} -d {{ solr_dir }}/solr"
+      args:
+        creates: "/etc/init.d/solr"
+      register: solr_install
+      when: installed_solr.stat.exists != "true"
+      changed_when: '"Service solr installed" in solr_install.stdout'
+
+    - name: "Create solr cores"
+      shell: "/opt/apps/solr/bin/solr create -c {{ item }}"
+      register: core_one
+      with_items:
+        - "{{ app_env }}"
+        - test
+
+    - name: "Change permissions of solr dir."
+      file:
+        path: "{{ solr_dir }}/solr/"
+        owner: solr
+        group: solr
+        recurse: yes
+
+    - name: "Run Create solr cores again"
+      shell: "/opt/apps/solr/bin/solr create -c {{ item }}"
+      with_items:
+        - "{{ app_env }}"
+        - test
+      when: "'already exists' not in core_one.results[0].stderr or 'already exists' not in core_one.results[1].stderr"
+

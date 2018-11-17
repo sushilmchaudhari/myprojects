@@ -1,0 +1,21 @@
+before_script:
+  - rvm use 2.1.9@eba
+  - bundle install
+
+dev_tests:
+  stage: test
+  script:
+    - source ./.ci-setup-script.sh
+    - /usr/bin/xvfb-run bundle exec rspec -f documentation --exclude-pattern "spec/features/**/*.rb" --failure-exit-code 0
+    - /usr/bin/xvfb-run bundle exec rspec -f documentation --exclude-pattern "spec/features/**/*.rb" --only-failures
+  except:
+    - master
+
+all_tests:
+  stage: test
+  script:
+    - source ./.ci-setup-script.sh
+    - /usr/bin/xvfb-run bundle exec rspec -f documentation --failure-exit-code 0
+    - /usr/bin/xvfb-run bundle exec rspec -f documentation --only-failures
+  only:
+    - CI

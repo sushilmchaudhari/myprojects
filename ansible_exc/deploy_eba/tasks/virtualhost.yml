@@ -1,0 +1,51 @@
+---
+
+- include_vars:
+   file: vars.yml
+  
+- name: Create apache virtualhost directory.
+  file:
+    path: /etc/httpd/sites-available
+    mode: 0755
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+
+- stat:
+    path: /etc/httpd/sites-available/00.default.eba.conf
+  register: default_conf
+
+- name: Create assembled directory
+  file:
+    path: "{{ tmp_dir}}/assemble"
+    state: directory
+
+- name: Create Virtualhost file having passenger configuration.
+  shell: >
+    {{ rvm_dir }}/wrappers/{{ ruby_version }}/passenger-install-apache2-module --snippet 
+    > {{ tmp_dir }}/assemble/default_1
+  register: virtualhost
+
+- name: Templating virtualhost 
+  template:
+    src: templates/vhosts.conf.j2
+    dest: "{{ tmp_dir }}/assemble/default_2"
+ 
+- name: Assemble fragments of files to create Virtualhost.
+  assemble:
+    src: "{{ tmp_dir }}/assemble"
+    dest: /etc/httpd/sites-available/00.default.eba.conf
+    owner: "{{ app_user }}"
+  when: not default_conf.stat.exists
+
+- name: Add include in httpd.conf
+  lineinfile:
+    path: /etc/httpd/conf/httpd.conf
+    backup: yes
+    insertafter: EOF
+    line: "Include /etc/httpd/sites-available/*"
+
+- name: Restart Apache service.
+  service:
+    name: apache
+    state: restarted

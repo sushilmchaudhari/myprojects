@@ -1,0 +1,48 @@
+---
+- hosts: all
+  become: yes
+
+  vars_files:
+    - vars.yml
+  
+  tasks:
+    - name: Create apache virtualhost directory.
+      file:
+        path: /etc/httpd/sites-available
+        mode: 0755
+        state: directory
+        owner: "{{ app_user }}" 
+        group: "{{ app_user }}"
+
+    - file:
+        src: /etc/httpd/sites-available
+        dest: /etc/httpd/sites-enabled
+        state: link
+        force: yes
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - stat:
+        path: /etc/httpd/sites-available/default
+      register: default_conf
+
+    - name: Generate default conf file
+      file:
+        path: /etc/httpd/sites-available/default
+        state: touch
+        mode: 0755
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+      when: not default_conf.stat.exists
+
+    - shell: >
+        cat /etc/httpd/sites-available/default
+      register: default_conf_1
+
+    - name: Create Virtualhost file having passenger configuration.
+      shell: >
+        {{ app_dir }}/wrappers/{{ ruby_version }}/passenger-install-apache2-module --snippet 
+        > /etc/httpd/sites-available/default
+      register: virtualhost
+      when: '"PassengerRoot" not in default_conf_1.stdout'
+  

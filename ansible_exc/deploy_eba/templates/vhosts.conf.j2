@@ -1,0 +1,47 @@
+<VirtualHost *:80>
+   ServerName {{ vhost_servername }}
+   ServerAlias {{ vhost_servername }}
+   SetEnv SECRET_KEY_BASE {{ app_env }}
+
+   DocumentRoot {{ eba_deploy_dir }}/current/public
+
+   LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+   CustomLog /var/log/httpd/access_log combined
+   LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" eba_combined
+
+   ErrorLog {{ eba_deploy_dir }}/current/log/error_log
+   CustomLog {{ eba_deploy_dir }}/current/log/access_log eba_combined
+
+   RewriteEngine On
+   RewriteCond %{REQUEST_URI} !^/eba
+   RewriteRule ^(.*)$ /eba$1 [R=301,NC,L]
+
+   Alias /eba {{ eba_deploy_dir }}/current/public
+   <Location /eba>
+     PassengerBaseURI /eba
+     PassengerAppRoot {{ eba_deploy_dir }}/current
+     PassengerRuby {{ rvm_dir }}/gems/{{ ruby_version }}@{{ gemset_name }}/wrappers/ruby
+     # Set Rails.env
+     PassengerAppEnv  {{ app_env }}
+   </Location>
+
+   # The Expires* directives requires the Apache module
+   # `mod_expires` to be enabled.
+
+   <Location /eba/assets/>
+     # Use of ETag is discouraged when Last-Modified is present
+     Header unset ETag
+     FileETag None
+     # RFC says only cache for 1 year
+     ExpiresActive On
+     ExpiresDefault "access plus 1 year"
+   </Location>
+
+   <Directory {{ eba_deploy_dir }}/current/public>
+     Options FollowSymLinks
+     AllowOverride None
+     Order allow,deny
+     Allow from all
+     Options -MultiViews
+   </Directory>
+</VirtualHost>

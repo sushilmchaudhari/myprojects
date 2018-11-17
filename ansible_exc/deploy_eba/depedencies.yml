@@ -1,0 +1,46 @@
+---
+-
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Check MQ tar file exist.
+      stat:
+        path: "{{ tmp_dir }}/mqc80_8.0.0.1_linuxx86-64"
+      register: mq_exist
+
+    - name: "Install MQ License"
+      shell: '/usr/bin/yes 1 | sh /tmp/work/mqc80_8.0.0.1_linuxx86-64/mqlicense.sh'
+      args:
+        creates: "/opt/mqm/licenses/status.dat"
+      register: license_installed
+      when: mq_exist.stat.exists
+
+    - name: "Install MQ rpm packages"
+      yum:
+        name: "/tmp/work/mqc80_8.0.0.1_linuxx86-64/{{ item }}"
+        state: present
+      with_items:
+        - MQSeriesRuntime-8.0.0-1.x86_64.rpm
+        - MQSeriesClient-8.0.0-1.x86_64.rpm
+        - MQSeriesJava-8.0.0-1.x86_64.rpm
+        - MQSeriesSDK-8.0.0-1.x86_64.rpm
+      when: mq_exist.stat.exists
+
+    - name: "Install QT5"
+      yum:
+        name: qt5-qtwebkit-devel
+#        enablerepo: epel-release
+        state: present
+      
+    - name: "Export qmake path to PATH variable"
+      blockinfile: 
+        dest: "/home/{{ app_user }}/.{{ item }}"
+        block: |
+          PATH=$PATH:/usr/lib64/qt5/bin/
+          export PATH
+      with_items:
+        - bash_profile
+        - bashrc

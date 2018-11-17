@@ -1,0 +1,75 @@
+---
+-
+  hosts: all
+  become: yes
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+
+    - name: Install App user if not exist.
+      user:
+        name: "{{ app_user }}"
+        state: present
+        comment: "EBA app user"
+
+    - name: "Install Repo"
+      yum:
+        name: http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm
+        state: latest
+#        update_cache: true
+      when: ansible_os_family == 'RedHat' and ansible_distribution_major_version =='7'
+
+    - name: "Install Repo centos 6"
+      yum:
+        name: epel-release 
+        state: latest
+#        update_cache: true
+      when: ansible_distribution == 'CentOS' and ansible_distribution_major_version =='6'
+
+
+    - name: "Install required softwares"
+      yum:
+        enablerepo: epel
+        name: "{{ item }}"
+        state: latest
+      with_items:
+        - nodejs
+        - libcurl-devel
+        - git
+        - libaio
+        - wget
+        - unzip
+        - telnet
+        - lsof
+        - httpd
+        - httpd-devel
+        - libselinux-python
+        - java-1.8.0-openjdk
+
+    - name: "Install GUI softwares"
+      yum:
+        name: "{{ item }}"
+        state: latest
+      with_items:
+        - xorg-x11-server-Xvfb
+      when: gui_required
+
+    - name: "Ensure demo application has correct user for files."
+      file:
+        path: "{{ rvm_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        recurse: yes
+
+    - name: "Create temp work directory"
+      file:
+        path: "{{ tmp_dir }}"
+        state: directory
+        mode: 0666
+     
+    - name: Disable SELinux.
+      selinux:
+        state: disabled
