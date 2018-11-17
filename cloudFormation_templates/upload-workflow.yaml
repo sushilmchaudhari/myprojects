@@ -1,0 +1,434 @@
+Description: 'MSRI VOD - Upload Workflow'
+
+Mappings:
+  SourceCode:
+    General:
+      S3Bucket: cf-templates-16eosvi5y0jgh-us-west-1      
+
+Resources:
+
+# IAM ROLES
+
+  CreateGuidRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !Sub "${AWS::StackName}-createguid-lambda-role"
+          PolicyDocument:
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - s3:PutBucketNotification
+                Resource:
+                  - !Join ["", ["arn:aws:s3:::", Ref: "UploadBucket", "/*" ]]
+                  - !Join ["", ["arn:aws:s3:::", Ref: "UploadBucket" ]]
+              -
+                Effect: Allow
+                Action:
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Join ["", ["arn:aws:dynamodb:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":table/",Ref: "DynamoDBTable"]]
+              -
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Join ["", ["arn:aws:logs:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":log-group:/aws/lambda/*"]]
+
+  CustomResourceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        -
+          PolicyName: !Sub "${AWS::StackName}-custom-resource"
+          PolicyDocument:
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Join ["", ["arn:aws:iam::", Ref: "AWS::AccountId", ":role/*"]]
+              -
+                Effect: Allow
+                Action:
+                  - states:CreateStateMachine
+                  - states:DeleteStateMachine
+                Resource:
+                  - !Join ["", ["arn:aws:states:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":*"]]
+              -
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Join ["", ["arn:aws:logs:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":log-group:/aws/lambda/*"]]
+              -
+                Effect: Allow
+                Action:
+                  - lambda:UpdateFunctionConfiguration
+                Resource:
+                  - !Join ["", ["arn:aws:lambda:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":", "function:*" ]]
+              -
+                Effect: Allow
+                Action:
+                  - s3:PutBucketNotification
+                  - s3:PutObject
+                Resource:
+                  - !Join ["", ["arn:aws:s3:::", Ref: "UploadBucket", "/*" ]]
+                  - !Join ["", ["arn:aws:s3:::", Ref: "UploadBucket" ]]
+              -
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateCloudFrontOriginAccessIdentity
+                  - cloudfront:DeleteCloudFrontOriginAccessIdentity
+                Resource: "*"
+              -
+                Effect: Allow
+                Action:
+                  - mediaconvert:CreatePreset
+                  - mediaconvert:DescribeEndpoints
+                Resource:
+                  - !Join ["", ["arn:aws:mediaconvert:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":*"]]
+
+  StepFunctionsServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - !Join ["", ["states.", Ref: "AWS::Region", ".amazonaws.com" ]]
+            Action:
+              - sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !Sub "${AWS::StackName}-stepfunctions-service-role"
+          PolicyDocument:
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Join ["", ["arn:aws:lambda:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":", "function:*" ]]
+
+  ErrorHandlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !Sub "${AWS::StackName}-error-handler-lambda-role"
+          PolicyDocument:
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref NotificationSns
+              -
+                Effect: Allow
+                Action:
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Join ["", ["arn:aws:dynamodb:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":table/",Ref: "DynamoDBTable"]]
+              -
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Join ["", ["arn:aws:logs:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":log-group:/aws/lambda/*"]]
+
+  WorkflowRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !Sub "${AWS::StackName}-worflow-lambda-role"
+          PolicyDocument:
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Join ["", ["arn:aws:states:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":stateMachine:", Ref: "AWS::StackName","-Upload"]]
+                  
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:PutObjectTagging
+                Resource:
+                  - !Join ["", ["arn:aws:s3:::", Ref: "Source", "/*" ]]
+                  - !Join ["", ["arn:aws:s3:::", Ref: "Upload", "/*" ]]
+              -
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Join ["", ["arn:aws:lambda:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId",":function:", Ref: "AWS::StackName","-error-handler"  ]]
+              -
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref NotificationSns
+              -
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                Resource:
+                  - !Join ["", ["arn:aws:dynamodb:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":table/",Ref: "DynamoDBTable"]]
+              -
+                Effect: Allow
+                Action:
+                  - mediaconvert:*
+                Resource:
+                  - !Join ["", ["arn:aws:mediaconvert:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":*"]]
+              -
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !GetAtt MediaConvertRole.Arn
+              -
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Join ["", ["arn:aws:logs:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":log-group:/aws/lambda/*"]]
+
+
+# PERMISSIONS AND POLICIES
+
+  S3LambdaInvokeVideo:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CreateGuid.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+
+# SERVICES AND RESOURCES
+
+  Upload:
+    Type: AWS::S3::Bucket
+    
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: guid
+        AttributeType: S
+      KeySchema:
+      - AttributeName: guid
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: !Ref AWS::StackName
+
+  NotificationSns:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub ${AWS::StackName}-Notifications
+      Subscription:
+        -
+          Endpoint: !Ref AdminEmail
+          Protocol: email
+
+  
+
+# CUSTOM RESOURCES
+
+  UploadConfig:
+    Type: Custom::S3
+    Properties:
+      ServiceToken: !GetAtt CustomResource.Arn
+      Source: !Ref UploadBucket
+      IngestArn: !GetAtt CreateGuid.Arn
+      Resource: S3Notification
+      WorkflowTrigger: "SourceVideo"
+
+
+# Lambda Function
+  CreateGuid:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-createguid"
+      Description: Create uniuqe id (guid) of every video uploaded to uploadBucket
+      Handler: index.handler
+      Role: !GetAtt CreateGuidRole.Arn
+      Code:
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: createguid.zip
+      Runtime: nodejs6.10
+      Timeout: 120
+      Environment:
+        Variables:
+          DynamoDBTable: !Ref DynamoDBTable
+  
+  UploadExecute:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-upload-execute"
+      Description: Executes the Upload StateMachine
+      Handler: index.handler
+      Role: !GetAtt WorkflowRole.Arn
+      Code:
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: upload-execute.zip
+      Runtime:  nodejs6.10
+      Timeout: 180
+      Environment:
+        Variables:
+          UploadWorkflow: !Join ["", ["arn:aws:states:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":stateMachine:", Ref: "AWS::StackName","-Upload"]]
+          ErrorHandler: !GetAtt ErrorHandler.Arn
+          DynamoDBTable: !Ref DynamoDBTable
+          NotificationSns: !Ref NotificationSns
+#          QueueUrl: 
+
+  DynamoDB:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-DynamoDB
+      Description: Updates DynamoDB with event data
+      Handler: index.handler
+      Role: !GetAtt WorkflowRole.Arn
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "dynamo.zip"]]
+      Runtime:  nodejs6.10
+      Timeout: 120
+      Environment:
+        Variables:
+          DynamoDBTable: !Ref DynamoDBTable
+          ErrorHandler: !GetAtt ErrorHandler.Arn
+
+  Sns:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sns-notification
+      Description: checks if all encode jobs are complete
+      Handler: index.handler
+      Role: !GetAtt WorkflowRole.Arn
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sns.zip"]]
+      Runtime:  nodejs6.10
+      Timeout: 120
+      Environment:
+        Variables:
+          ErrorHandler: !GetAtt ErrorHandler.Arn
+          NotificationSns: !Ref NotificationSns
+
+  CustomResource:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-deploy-custom-resources
+      Description: Used to deploy ETS, Step Functions and additional, cloudfront s3 and sns Configuration
+      Handler: index.handler
+      Role: !GetAtt CustomResourceRole.Arn
+      Code:
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: custom-resources.zip
+      Runtime:  nodejs6.10
+      Timeout: 180
+
+
+# STEP FUNCTIONS
+
+  UploadWorkflow:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub ${AWS::StackName}-Upload
+      DefinitionString: !Sub |
+        {
+          "StartAt": "CopyVideo",
+          "States": {
+            "ValidateSource": {
+              "Type": "Task",
+              "Resource": "${ValidateSource.Arn}",
+              "Next": "DynamoUpdate"
+            },
+            "DynamoUpdate": {
+              "Type": "Task",
+              "Resource": "${DynamoDB.Arn}",
+              "Next": "IngestSns"
+            },
+            "UploadSns": {
+              "Type": "Task",
+              "Resource": "${Sns.Arn}",
+              "End": true
+            }
+          }
+        }
+      RoleArn: !GetAtt StepFunctionsServiceRole.Arn
+
+
+Outputs:
+  UploadBucket:
+    Description: Upload Bucket
+    Value: !Ref UploadBucket
+
+  DynamoDBName:
+    Description: Dynamo DB Table Name
+    Value: !Ref DynamoDBTable
