@@ -1,16 +1,16 @@
 variable "key_name" {
   description = "Desired name of AWS key pair"
-  default = "nextgen_key_pair"
+  default = "<KEY_PAIR NAME>"
 }
 
 variable "access_key" {
   description = "Aws Access key of use"
-  default = "AKIAIPHDPT2TRGLVECGQ"
+  default = "<ACCESS KEY>"
 }
 
 variable "secret_key" {
   description = "Aws  secret key of user"
-  default = "BZRolxrfQDKcMFoP59JmkUniSOtYD5IH0MhCztlL"
+  default = "<SECREET KEY>"
 }
 
 variable "aws_region" {
@@ -21,12 +21,12 @@ variable "aws_region" {
 # Ubuntu 16.04 (x64)
 variable "aws_ami" {
    description = "AWS AMI used to create instances." 
-   default = "ami-1c71497c"
+   default = "<AMI_ID>"
 }
 
 variable "vpc_id" {
   description = "VPC ID for AWS resources."
-  default = "vpc-f4e5ec90"
+  default = "<VPC ID>"
 }
 
 variable "az_id" {

@@ -1,17 +1,16 @@
 variable "key_name" {
   description = "Desired name of AWS key pair"
-  default = "nextgen_key_pair"
+  default = "<KEY-PAIR NAME>"
 }
 
-# Ubuntu 16.04 (x64)
 variable "aws_ami" {
    description = "AWS AMI used to create instances." 
-   default = "ami-1c71497c"
+   default = "<AMI ID>"
 }
 
 variable "vpc_id" {
   description = "VPC ID for AWS resources."
-  default = "vpc-f4e5ec90"
+  default = "<ENTER VPC ID>"
 }
 
 variable "az_id" {
