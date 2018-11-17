@@ -1,0 +1,89 @@
+server {
+    listen *:80 default_server;
+    server_name app.msri.org;
+    root <%= @rails_root %>/<%= @rails_deploy_dir %>/current/public;   # be sure to point to 'public'
+
+    access_log /var/log/nginx/<%= @rails_deploy_dir %>.access.log combined;
+    error_log /var/log/nginx/<%= @rails_deploy_dir %>.error.log;
+    include /opt/nginx/conf.d/release.conf;
+
+    include /opt/nginx/conf.d/error_pages.conf;
+    include /opt/nginx/conf.d/maintenance.conf;
+
+    proxy_set_header  X-Accel-Mapping       <%= @rails_root %>/<%= @rails_deploy_dir %>/releases/$release_path/paperclip/=/private_files/;
+    passenger_set_cgi_param HTTP_X_ACCEL_MAPPING <%= @rails_root %>/<%= @rails_deploy_dir %>/releases/$release_path/paperclip/=/private_files/;
+    passenger_pass_header X-Accel-Redirect;
+
+    location /private_files/ {
+      internal;
+      alias   <%= @rails_root %>/<%= @rails_deploy_dir %>/releases/$release_path/paperclip/;
+    }
+
+    include /opt/nginx/conf.d/rewrite.msri.conf;
+
+    include /opt/nginx/conf.d/mathjax.server.conf;
+
+    include /opt/nginx/conf.d/rewrite.attachment.conf;
+
+    # LOCOMOTIVE - START
+    location /locomotive {
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_pass      http://locomotive.msri.org;
+    }
+    location /web/cms {
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_pass      http://locomotive.msri.org/;
+    }
+    location /sites {
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_pass      http://locomotive.msri.org;
+    }
+    location ~ ^/(assets/locomotive) {
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_pass      http://locomotive.msri.org;
+    }
+    location ~ ^/(assets/font-awesome) {
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_pass      http://locomotive.msri.org;
+    } 
+    # LOCOMOTIVE - END
+
+    location ^~ /assets/ckeditor {
+      passenger_enabled on;
+      rails_env <%= @rails_environment %>;
+      break;
+    }
+
+    location ~ ^/assets/ {
+      root <%= @rails_root %>/<%= @rails_deploy_dir %>/current/public;
+      expires 1y;
+      add_header Cache-Control public;
+      gzip_static on;
+
+      add_header ETag "";
+      break;
+    }
+
+    include /opt/nginx/conf.d/legacy.conf;
+
+    location / {
+      rewrite ^/web/msri$ /web/cms redirect;
+      rewrite ^/web/msri/$ /web/cms redirect;
+      rewrite ^/~de(.*) /m/people/members/de$1;
+      rewrite ^/~osserman(.*) /m/people/staff/osserman$1;
+      rewrite ^/web/msri/support-msri/make_a_donation https://$host$request_uri permanent;
+
+      passenger_enabled on;
+      rails_env <%= @rails_environment %>;
+
+      proxy_set_header  X-Accel-Mapping       <%= @rails_root %>/<%= @rails_deploy_dir %>/releases/$release_path/paperclip/=/private_files/;
+      passenger_set_cgi_param HTTP_X_ACCEL_MAPPING <%= @rails_root %>/<%= @rails_deploy_dir %>/releases/$release_path/paperclip/=/private_files/;
+      passenger_pass_header X-Accel-Redirect;
+    }
+}
+

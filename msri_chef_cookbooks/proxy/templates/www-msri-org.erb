@@ -1,0 +1,24 @@
+server {
+    server_name  msri.org msrinextgen.org www.msrinextgen.org web.msri.org web.production.msri.org;
+    rewrite ^(.*) http://www.msri.org$1 permanent;
+}
+
+server {
+# The IP that you forwarded in your router (nginx proxy)
+  listen *:<%= node['nginx']['port'] -%>;
+
+# Make site accessible from http://localhost/
+ server_name <%= node['nginx']['server_name'] -%>;
+
+ access_log <%= node['nginx']['log_dir'] -%>/<%= node['nginx']['server_name'] -%>.access.log combined;
+ error_log <%= node['nginx']['log_dir'] -%>/<%= node['nginx']['server_name'] -%>.error.log;
+
+
+ location / {
+  proxy_pass http://app.msri.org;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_redirect off;
+ }
+}

@@ -1,0 +1,20 @@
+DEPENDENCIES
+  rvm_ruby
+    path: .
+    metadata: true
+
+GRAPH
+  build-essential (8.0.4)
+    mingw (>= 1.1)
+    seven_zip (>= 0.0.0)
+  magic_shell (1.0.0)
+  mingw (2.0.1)
+    seven_zip (>= 0.0.0)
+  ohai (5.2.1)
+  rvm_ruby (0.1.0)
+    build-essential (>= 0.0.0)
+    magic_shell (>= 0.0.0)
+  seven_zip (2.0.2)
+    windows (>= 1.2.2)
+  windows (3.4.4)
+    ohai (>= 4.0.0)

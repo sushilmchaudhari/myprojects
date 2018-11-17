@@ -1,0 +1,20 @@
+DEPENDENCIES
+  locomotive
+    path: .
+    metadata: true
+
+GRAPH
+  build-essential (8.0.3)
+    mingw (>= 1.1)
+    seven_zip (>= 0.0.0)
+  locomotive (0.1.0)
+    build-essential (>= 0.0.0)
+    magic_shell (>= 0.0.0)
+  magic_shell (1.0.0)
+  mingw (2.0.1)
+    seven_zip (>= 0.0.0)
+  ohai (5.2.0)
+  seven_zip (2.0.2)
+    windows (>= 1.2.2)
+  windows (3.4.0)
+    ohai (>= 4.0.0)

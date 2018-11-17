@@ -1,0 +1,7 @@
+server {
+        listen          80 default_server;
+        server_name     <%= @server_hostname %>;
+        root 		<%= @rails_root %>;    
+        passenger_enabled on;
+        rails_env <%= @rails_environment %>;
+}

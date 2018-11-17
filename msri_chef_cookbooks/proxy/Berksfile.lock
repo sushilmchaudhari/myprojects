@@ -1,0 +1,38 @@
+DEPENDENCIES
+  proxy
+    path: .
+    metadata: true
+
+GRAPH
+  apt (6.1.4)
+  build-essential (8.0.4)
+    mingw (>= 1.1)
+    seven_zip (>= 0.0.0)
+  curl (2.0.4)
+  logrotate (2.2.0)
+  mingw (2.0.1)
+    seven_zip (>= 0.0.0)
+  newrelic (2.34.0)
+    apt (>= 0.0.0)
+    curl (>= 0.0.0)
+    poise-python (>= 0.0.0)
+    yum (>= 0.0.0)
+  ohai (5.2.1)
+  poise (2.8.1)
+  poise-archive (1.5.0)
+    poise (~> 2.6)
+  poise-languages (2.1.1)
+    poise (~> 2.5)
+    poise-archive (~> 1.0)
+  poise-python (1.6.0)
+    poise (~> 2.7)
+    poise-languages (~> 2.0)
+  proxy (0.1.0)
+    build-essential (>= 0.0.0)
+    logrotate (~> 2.2.0)
+    newrelic (>= 0.0.0)
+  seven_zip (2.0.2)
+    windows (>= 1.2.2)
+  windows (3.4.4)
+    ohai (>= 4.0.0)
+  yum (5.1.0)
