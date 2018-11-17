@@ -1,5 +1,5 @@
 default['newrelic_infra']['license']['file'] = '/etc/newrelic-infra.yml'
-default['newrelic_infra']['license_key'] = "e5aaf409010c37c2808bef383165efaae1bc5585"
+default['newrelic_infra']['license_key'] = "<Enter license key here>"
 
 default['newrelic_infra']['apt']['uri'] = 'https://download.newrelic.com/infrastructure_agent/linux/apt'
 default['newrelic_infra']['apt']['key'] = 'https://download.newrelic.com/infrastructure_agent/gpg/newrelic-infra.gpg'
