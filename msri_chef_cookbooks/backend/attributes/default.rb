@@ -8,10 +8,10 @@ default['openldap']['passwd'] = "msrinextgen"
 
 # Postfix
 default[:postfix][:mynetworks] = '10.17.1.0/24 10.17.2.0/24 10.17.3.0/24 10.17.4.0/24 10.17.5.0/24 10.17.6.0/24 10.17.7.0/24'  #Space seperated subnet list
-default['postfix']['relayhost']['smtp'] = 'email-smtp.us-west-2.amazonaws.com'
+default['postfix']['relayhost']['smtp'] = '<SES_AWS>'
 default['postfix']['relayhost']['port'] = '587'
-default['postfix']['sasl']['smtp_sasl_user'] = 'AKIAIMSMUKFOVDUK3MPA'
-default['postfix']['sasl']['smtp_sasl_passwd'] = 'ApugfuJQC9sdjWYOyaWYlYgCHoxUN1fQ5REtssWuVTUA'
+default['postfix']['sasl']['smtp_sasl_user'] = '<USER_ACCESS_KEY>'
+default['postfix']['sasl']['smtp_sasl_passwd'] = '<USER_ACCESS_PASSWORD>'
 default['postfix']['sasl_password_file'] = '/etc/postfix/sasl_password'
 
 
