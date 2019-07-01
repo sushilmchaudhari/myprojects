@@ -1,0 +1,7 @@
+---
+- hosts: all
+  vars_files:
+    - vars/lab_users.secret
+  become: yes
+  roles:
+  - users

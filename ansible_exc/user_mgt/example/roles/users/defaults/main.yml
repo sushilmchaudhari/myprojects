@@ -1,0 +1,5 @@
+---
+debug_enabled_default: true
+default_update_password: on_create
+default_shell: /bin/bash
+

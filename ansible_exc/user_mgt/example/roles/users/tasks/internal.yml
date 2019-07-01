@@ -1,0 +1,72 @@
+---
+- name: Generate RSA host key for the user for internal connection
+  command : /usr/bin/ssh-keygen -q -t rsa -f /home/{{ item.username }}/.ssh/id_rsa -C {{ item.username }}@evo_management -N ""
+  args:
+    creates: /home/{{ item.username }}/.ssh/id_rsa
+  when: item.user_state == 'present' and "mgt" in group_names
+  loop: "{{ users }}"
+  loop_control:
+    label: "username: {{item.username}}, user_state: {{ item.user_state }}"
+  register: user_ssh_key
+
+
+- name: Get the conents of ssh key
+  command:  cat /home/{{ item.username }}/.ssh/id_rsa.pub
+  register: ssh_pub
+  when: item.user_state == 'present' and "mgt" in group_names
+  loop: "{{ users }}"
+  loop_control:
+    label: "username: {{ item.username }}, user_state: {{ item.user_state }}"
+
+- name: Set fatcs
+  set_fact:
+    user_key: "{{ user_key|default([]) + [ {'u_name': item.item.username, 'u_ssh_key': item.stdout, 'u_state': item.item.user_state} ] }}"
+  when: item.item.user_state == 'present'
+  with_items: "{{ ssh_pub.results }}"
+  run_once: true
+  no_log: true
+  ignore_errors: true
+
+- name: Add above Key to authorized_key under evo user on all servers
+  authorized_key:
+    user: "{{ item.u_name }}"
+    state: present
+    key: "{{ item.u_ssh_key }}"
+    exclusive: no
+  with_items: "{{ user_key }}"
+  no_log: True
+  when: user_key is defined and "mgt" not in group_names
+
+- name: Add above Key to authorized_key on all servers
+  authorized_key:
+    user: "evo"
+    state: present
+    key: "{{ item.u_ssh_key }}"
+    exclusive: no
+  with_items: "{{ user_key }}"
+  no_log: True
+  when: user_key is defined and "mgt" not in group_names
+
+- name: Change ownership of private key
+  file:
+    path: /home/{{ item.username }}/.ssh/id_rsa
+    owner: "{{ item.username }}"
+    group: "{{ item.username }}"
+    mode: 0600
+  when: item.user_state == 'present' and "mgt" in group_names
+  loop: "{{ users }}"
+  loop_control:
+    label: "username: {{ item.username }}, user_state: {{ item.user_state }}"
+  ignore_errors: yes
+
+- name: Change ownership of public key
+  file:
+    path: /home/{{ item.username }}/.ssh/id_rsa.pub
+    owner: "{{ item.username }}"
+    group: "{{ item.username }}"
+    mode: 0644
+  when: item.user_state == 'present' and "mgt" in group_names
+  loop: "{{ users }}"
+  loop_control:
+    label: "username: {{ item.username }}, user_state: {{ item.user_state }}"
+  ignore_errors: yes

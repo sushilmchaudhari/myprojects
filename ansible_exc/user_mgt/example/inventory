@@ -1,0 +1,12 @@
+[mgt]
+<MANAGEMENT SERVER PUBLIC IP> ansible_python_interpreter=/usr/bin/python3
+
+[app]
+<APP 1 SERVER IP >     ansible_python_interpreter=/usr/bin/python3
+<APP 2 SERVER IP >     ansible_python_interpreter=/usr/bin/python3
+<APP 3 SERVER IP >     ansible_python_interpreter=/usr/bin/python3
+<APP 4 SERVER IP >     ansible_python_interpreter=/usr/bin/python3
+
+[worker]
+<WORKER 1 SERVER IP >     ansible_python_interpreter=/usr/bin/python3
+<WORKER 2 SERVER IP >     ansible_python_interpreter=/usr/bin/python3
