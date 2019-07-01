@@ -1,11 +1,3 @@
-1.  [Network For Good](index.html)
-
-<span id="title-text"> Network For Good : Setting up Terraform Project </span>
-==============================================================================
-
-Created by <span class="author"> Sushil Chaudhari</span>, last modified
-on Jun 25, 2019
-
 -   [1: Install
     Terraform](#SettingupTerraformProject-1:InstallTerraform)
     -   [1: Confirm we have the packages wget & unzip
